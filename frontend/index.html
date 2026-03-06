@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Login & Signup Form</title>
+  <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" 
+        href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/7.0.1/css/all.min.css"
+        integrity="sha512-2SwdPD6INVrV/lHTZbO2nodKhrnDdJK9/kg2XD1r9uGqPo1cUbujc+IYdlYdEErWNu69gVcYgdxlmVmzTWnetw==" 
+        crossorigin="anonymous" referrerpolicy="no-referrer" />
+</head>
+<body>
+  <!-- بخش Verify -->
+  <h3>Verify Account</h3>
+  <input type="email" id="verifyEmail" placeholder="Enter your email">
+  <input type="text" id="verifyOtp" placeholder="Enter OTP code">
+  <button onclick="verifyAccount()">Verify</button>
+
+  <div class="auth-wrapper">
+    <div class="background-shape"></div>
+    <div class="secondary-shape"></div>
+
+    <!-- Login Panel -->
+    <div class="credentials-panel signin">
+      <h2 class="slide-element">Login</h2>
+      <form id="loginForm">
+        <div class="field-wrapper slide-element">
+          <input type="email" id="loginEmail" required>
+          <label>Email</label>
+          <i class="fa-solid fa-envelope"></i>
+        </div>
+
+        <div class="field-wrapper slide-element">
+          <input type="password" id="loginPassword" required>
+          <label>Password</label>
+          <i class="fa-solid fa-lock"></i>
+        </div>
+
+        <div class="field-wrapper slide-element">
+          <button class="submit-button" type="submit">Login</button>
+        </div>
+
+        <div class="switch-link slide-element">
+          <p>Don't have an account? <br> <a href="#" class="register-trigger">Sign Up</a></p>
+        </div>
+      </form>
+    </div>
+
+    <div class="welcome-section signin">
+      <h2 class="slide-element">WELCOME BACK!</h2>
+    </div>
+
+    <!-- Signup Panel -->
+    <div class="credentials-panel signup">
+      <h2 class="slide-element">Register</h2>
+      <form id="signupForm">
+        <div class="field-wrapper slide-element">
+          <input type="text" id="signupUsername" required>
+          <label>Username</label>
+          <i class="fa-solid fa-user"></i>
+        </div>
+
+        <div class="field-wrapper slide-element">
+          <input type="email" id="signupEmail" required>
+          <label>Email</label>
+          <i class="fa-solid fa-envelope"></i>
+        </div>
+
+        <div class="field-wrapper slide-element">
+          <input type="password" id="signupPassword" required>
+          <label>Password</label>
+          <i class="fa-solid fa-lock"></i>
+        </div>
+
+        <div class="field-wrapper slide-element">
+          <button class="submit-button" type="submit">Register</button>
+        </div>
+
+        <div class="switch-link slide-element">
+          <p>Already have an account? <br> <a href="#" class="login-trigger">Sign In</a></p>
+        </div>
+      </form>
+    </div>
+
+    <div class="welcome-section signup">
+      <h2 class="slide-element">WELCOME!</h2>
+    </div>
+  </div>
+
+  <!-- دکمه پروفایل -->
+  <div style="text-align:center; margin-top:20px;">
+    <button id="profileBtn">View Profile</button>
+  </div>
+
+  <!-- بخش نمایش پیام‌ها -->
+  <div id="messageBox" style="text-align:center; margin-top:20px; color:green; font-weight:bold;"></div>
+
+  <script>
+    // ثبت‌نام
+    document.getElementById('signupForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const username = document.getElementById('signupUsername').value;
+      const email = document.getElementById('signupEmail').value;
+      const password = document.getElementById('signupPassword').value;
+
+      const response = await fetch('http://localhost:3000/adduser', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username, email, password })
+      });
+
+      const data = await response.json();
+      document.getElementById('messageBox').innerText = data.message;
+    });
+
+    // Verify OTP
+    async function verifyAccount() {
+      const email = document.getElementById('verifyEmail').value;
+      const otp = document.getElementById('verifyOtp').value;
+
+      const response = await fetch('http://localhost:3000/verify', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, otp })
+      });
+
+      const data = await response.json();
+      document.getElementById('messageBox').innerText = data.message;
+    }
+
+    // ورود
+    document.getElementById('loginForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const email = document.getElementById('loginEmail').value;
+      const password = document.getElementById('loginPassword').value;
+
+      const response = await fetch('http://localhost:3000/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password })
+      });
+
+      const data = await response.json();
+      document.getElementById('messageBox').innerText = data.message;
+
+      if (data.token) {
+        localStorage.setItem('token', data.token);
+      }
+    });
+
+    // پروفایل
+    document.getElementById('profileBtn').addEventListener('click', async () => {
+      const token = localStorage.getItem('token');
+      if (!token) {
+        document.getElementById('messageBox').innerText = 'Please login first!';
+        return;
+      }
+
+      const response = await fetch('http://localhost:3000/profile', {
+        method: 'GET',
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+
+      const data = await response.json();
+      document.getElementById('messageBox').innerText = data.message + ' ' + JSON.stringify(data.user);
+    });
+  </script>
+</body>
+</html>
