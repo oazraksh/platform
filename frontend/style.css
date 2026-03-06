@@ -157,3 +157,14 @@ button:hover {
 .signup {
   display: none;
 }
+
+/* واکنش‌گرایی */
+@media (max-width: 768px) {
+  .auth-wrapper {
+    flex-direction: column;
+    width: 100%;
+  }
+  .welcome-section {
+    display: none;
+  }
+}

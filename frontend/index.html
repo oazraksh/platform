@@ -2,169 +2,145 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self' https://cdnjs.cloudflare.com; script-src 'self' https://cdnjs.cloudflare.com; font-src 'self' https://cdnjs.cloudflare.com; connect-src 'self';">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Login & Signup Form</title>
+  <meta name="description" content="Secure, modern, and responsive authentication for your social media platform. Login, signup, and OTP verification with accessibility and security best practices.">
+  <meta name="theme-color" content="#2563eb">
+  <title>Social Media Platform – Login & Signup</title>
+  <!-- Preconnect for Font Awesome CDN -->
+  <link rel="preconnect" href="https://cdnjs.cloudflare.com" crossorigin>
+  <!-- Font Awesome CDN -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" integrity="sha512-..." crossorigin="anonymous" referrerpolicy="no-referrer" />
+  <!-- External CSS -->
   <link rel="stylesheet" href="style.css">
-  <link rel="stylesheet" 
-        href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/7.0.1/css/all.min.css"
-        integrity="sha512-2SwdPD6INVrV/lHTZbO2nodKhrnDdJK9/kg2XD1r9uGqPo1cUbujc+IYdlYdEErWNu69gVcYgdxlmVmzTWnetw==" 
-        crossorigin="anonymous" referrerpolicy="no-referrer" />
 </head>
 <body>
-  <!-- بخش Verify -->
-  <h3>Verify Account</h3>
-  <input type="email" id="verifyEmail" placeholder="Enter your email">
-  <input type="text" id="verifyOtp" placeholder="Enter OTP code">
-  <button onclick="verifyAccount()">Verify</button>
+  <main>
+    <section class="auth-container" aria-label="Authentication">
+      <header class="auth-header">
+        <h1>
+          <i class="fa-solid fa-users" aria-hidden="true"></i>
+          Welcome to Social Media Platform
+        </h1>
+      </header>
 
-  <div class="auth-wrapper">
-    <div class="background-shape"></div>
-    <div class="secondary-shape"></div>
+      <!-- Message Box for Success/Error Feedback -->
+      <div id="message-box" class="message-box" role="status" aria-live="polite" aria-atomic="true" hidden>
+        <span id="message-text"></span>
+        <button id="message-close" type="button" aria-label="Dismiss message">&times;</button>
+      </div>
 
-    <!-- Login Panel -->
-    <div class="credentials-panel signin">
-      <h2 class="slide-element">Login</h2>
-      <form id="loginForm">
-        <div class="field-wrapper slide-element">
-          <input type="email" id="loginEmail" required>
-          <label>Email</label>
-          <i class="fa-solid fa-envelope"></i>
-        </div>
+      <!-- Toggle Switch for Login/Signup -->
+      <nav class="auth-toggle" aria-label="Authentication Toggle" role="tablist">
+        <button id="login-tab" class="toggle-btn active" role="tab" aria-selected="true" aria-controls="login-panel" tabindex="0">
+          <i class="fa-solid fa-right-to-bracket" aria-hidden="true"></i> Login
+        </button>
+        <button id="signup-tab" class="toggle-btn" role="tab" aria-selected="false" aria-controls="signup-panel" tabindex="0">
+          <i class="fa-solid fa-user-plus" aria-hidden="true"></i> Sign Up
+        </button>
+      </nav>
 
-        <div class="field-wrapper slide-element">
-          <input type="password" id="loginPassword" required>
-          <label>Password</label>
-          <i class="fa-solid fa-lock"></i>
-        </div>
+      <!-- Login Form -->
+      <section id="login-panel" class="auth-panel" role="tabpanel" aria-labelledby="login-tab">
+        <form id="login-form" autocomplete="on" novalidate>
+          <div class="form-group">
+            <label for="login-email">Email</label>
+            <div class="input-icon">
+              <i class="fa-solid fa-envelope" aria-hidden="true"></i>
+              <input id="login-email" name="email" type="email" required autocomplete="email" placeholder="you@example.com" aria-describedby="login-email-help">
+            </div>
+            <small id="login-email-help" class="form-hint">Enter your registered email address.</small>
+          </div>
+          <div class="form-group">
+            <label for="login-password">Password</label>
+            <div class="input-icon">
+              <i class="fa-solid fa-lock" aria-hidden="true"></i>
+              <input id="login-password" name="password" type="password" required autocomplete="current-password" minlength="8" placeholder="Password" aria-describedby="login-password-help">
+              <button type="button" class="toggle-password" aria-label="Show password">
+                <i class="fa-solid fa-eye" aria-hidden="true"></i>
+              </button>
+            </div>
+            <small id="login-password-help" class="form-hint">Minimum 8 characters.</small>
+          </div>
+          <button type="submit" class="primary-btn" aria-label="Login">Login</button>
+        </form>
+      </section>
 
-        <div class="field-wrapper slide-element">
-          <button class="submit-button" type="submit">Login</button>
-        </div>
+      <!-- Signup Form -->
+      <section id="signup-panel" class="auth-panel" role="tabpanel" aria-labelledby="signup-tab" hidden>
+        <form id="signup-form" autocomplete="on" novalidate>
+          <div class="form-group">
+            <label for="signup-username">Username</label>
+            <div class="input-icon">
+              <i class="fa-solid fa-user" aria-hidden="true"></i>
+              <input id="signup-username" name="username" type="text" required minlength="3" maxlength="32" autocomplete="username" placeholder="Choose a username" aria-describedby="signup-username-help">
+            </div>
+            <small id="signup-username-help" class="form-hint">3–32 characters, letters and numbers only.</small>
+          </div>
+          <div class="form-group">
+            <label for="signup-email">Email</label>
+            <div class="input-icon">
+              <i class="fa-solid fa-envelope" aria-hidden="true"></i>
+              <input id="signup-email" name="email" type="email" required autocomplete="email" placeholder="you@example.com" aria-describedby="signup-email-help">
+            </div>
+            <small id="signup-email-help" class="form-hint">We'll send a verification code to this email.</small>
+          </div>
+          <div class="form-group">
+            <label for="signup-password">Password</label>
+            <div class="input-icon">
+              <i class="fa-solid fa-lock" aria-hidden="true"></i>
+              <input id="signup-password" name="password" type="password" required minlength="8" autocomplete="new-password" placeholder="Create a password" aria-describedby="signup-password-help">
+              <button type="button" class="toggle-password" aria-label="Show password">
+                <i class="fa-solid fa-eye" aria-hidden="true"></i>
+              </button>
+            </div>
+            <small id="signup-password-help" class="form-hint">Minimum 8 characters, mix of letters and numbers.</small>
+          </div>
+          <button type="submit" class="primary-btn" aria-label="Sign Up">Sign Up</button>
+        </form>
+      </section>
 
-        <div class="switch-link slide-element">
-          <p>Don't have an account? <br> <a href="#" class="register-trigger">Sign Up</a></p>
-        </div>
-      </form>
-    </div>
+      <!-- OTP Verification Section -->
+      <section id="otp-panel" class="otp-panel" aria-label="OTP Verification" hidden>
+        <form id="otp-form" autocomplete="off" novalidate>
+          <fieldset>
+            <legend>OTP Verification</legend>
+            <div class="form-group">
+              <label for="otp-email">Email</label>
+              <div class="input-icon">
+                <i class="fa-solid fa-envelope" aria-hidden="true"></i>
+                <input id="otp-email" name="email" type="email" required autocomplete="email" placeholder="you@example.com" aria-describedby="otp-email-help">
+              </div>
+              <small id="otp-email-help" class="form-hint">Enter the email you registered with.</small>
+            </div>
+            <div class="form-group">
+              <label for="otp-code">OTP Code</label>
+              <div class="input-icon">
+                <i class="fa-solid fa-key" aria-hidden="true"></i>
+                <input id="otp-code" name="otp" type="text" inputmode="numeric" pattern="\d{6}" maxlength="6" required autocomplete="one-time-code" placeholder="6-digit code" aria-describedby="otp-code-help">
+              </div>
+              <small id="otp-code-help" class="form-hint">Enter the 6-digit code sent to your email.</small>
+            </div>
+            <button type="submit" class="primary-btn" aria-label="Verify OTP">Verify</button>
+            <button type="button" id="resend-otp" class="secondary-btn" aria-label="Resend OTP">Resend OTP</button>
+          </fieldset>
+        </form>
+      </section>
 
-    <div class="welcome-section signin">
-      <h2 class="slide-element">WELCOME BACK!</h2>
-    </div>
+      <!-- Protected Profile Fetch Button -->
+      <section class="profile-section" aria-label="Protected Profile">
+        <button id="fetch-profile" class="profile-btn" type="button" aria-label="Fetch Profile">
+          <i class="fa-solid fa-user-shield" aria-hidden="true"></i> Fetch Protected Profile
+        </button>
+      </section>
+    </section>
+  </main>
 
-    <!-- Signup Panel -->
-    <div class="credentials-panel signup">
-      <h2 class="slide-element">Register</h2>
-      <form id="signupForm">
-        <div class="field-wrapper slide-element">
-          <input type="text" id="signupUsername" required>
-          <label>Username</label>
-          <i class="fa-solid fa-user"></i>
-        </div>
+  <footer class="site-footer">
+    <small>&copy; 2026 Social Media Platform. All rights reserved.</small>
+  </footer>
 
-        <div class="field-wrapper slide-element">
-          <input type="email" id="signupEmail" required>
-          <label>Email</label>
-          <i class="fa-solid fa-envelope"></i>
-        </div>
-
-        <div class="field-wrapper slide-element">
-          <input type="password" id="signupPassword" required>
-          <label>Password</label>
-          <i class="fa-solid fa-lock"></i>
-        </div>
-
-        <div class="field-wrapper slide-element">
-          <button class="submit-button" type="submit">Register</button>
-        </div>
-
-        <div class="switch-link slide-element">
-          <p>Already have an account? <br> <a href="#" class="login-trigger">Sign In</a></p>
-        </div>
-      </form>
-    </div>
-
-    <div class="welcome-section signup">
-      <h2 class="slide-element">WELCOME!</h2>
-    </div>
-  </div>
-
-  <!-- دکمه پروفایل -->
-  <div style="text-align:center; margin-top:20px;">
-    <button id="profileBtn">View Profile</button>
-  </div>
-
-  <!-- بخش نمایش پیام‌ها -->
-  <div id="messageBox" style="text-align:center; margin-top:20px; color:green; font-weight:bold;"></div>
-
-  <script>
-    // ثبت‌نام
-    document.getElementById('signupForm').addEventListener('submit', async (e) => {
-      e.preventDefault();
-      const username = document.getElementById('signupUsername').value;
-      const email = document.getElementById('signupEmail').value;
-      const password = document.getElementById('signupPassword').value;
-
-      const response = await fetch('http://localhost:3000/adduser', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ username, email, password })
-      });
-
-      const data = await response.json();
-      document.getElementById('messageBox').innerText = data.message;
-    });
-
-    // Verify OTP
-    async function verifyAccount() {
-      const email = document.getElementById('verifyEmail').value;
-      const otp = document.getElementById('verifyOtp').value;
-
-      const response = await fetch('http://localhost:3000/verify', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, otp })
-      });
-
-      const data = await response.json();
-      document.getElementById('messageBox').innerText = data.message;
-    }
-
-    // ورود
-    document.getElementById('loginForm').addEventListener('submit', async (e) => {
-      e.preventDefault();
-      const email = document.getElementById('loginEmail').value;
-      const password = document.getElementById('loginPassword').value;
-
-      const response = await fetch('http://localhost:3000/login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password })
-      });
-
-      const data = await response.json();
-      document.getElementById('messageBox').innerText = data.message;
-
-      if (data.token) {
-        localStorage.setItem('token', data.token);
-      }
-    });
-
-    // پروفایل
-    document.getElementById('profileBtn').addEventListener('click', async () => {
-      const token = localStorage.getItem('token');
-      if (!token) {
-        document.getElementById('messageBox').innerText = 'Please login first!';
-        return;
-      }
-
-      const response = await fetch('http://localhost:3000/profile', {
-        method: 'GET',
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
-
-      const data = await response.json();
-      document.getElementById('messageBox').innerText = data.message + ' ' + JSON.stringify(data.user);
-    });
-  </script>
+  <!-- External JavaScript -->
+  <script src="script.js" defer></script>
 </body>
 </html>

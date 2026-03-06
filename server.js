@@ -1,160 +1,290 @@
-const express = require('express');
-const mysql = require('mysql2');
-const bcrypt = require('bcryptjs');
-const jwt = require('jsonwebtoken');
-const cors = require('cors');
-const nodemailer = require('nodemailer');
+// server.js
+
 require('dotenv').config();
 
+const express = require('express');
+const cors = require('cors');
+const helmet = require('helmet');
+const mysql = require('mysql2/promise');
+const nodemailer = require('nodemailer');
+const bcrypt = require('bcryptjs');
+const jwt = require('jsonwebtoken');
+const { body, validationResult } = require('express-validator');
+const rateLimit = require('express-rate-limit');
+const morgan = require('morgan');
+const winston = require('winston');
+
+// ----- Environment Variables with Fallbacks -----
+const {
+  PORT = 3000,
+  DB_HOST = 'localhost',
+  DB_USER = 'root',
+  DB_PASS = '',
+  DB_NAME = 'social_media',
+  EMAIL_USER,
+  EMAIL_PASS,
+  JWT_SECRET = 'supersecretkey',
+  NODE_ENV = 'development'
+} = process.env;
+
+// ----- Logging Setup -----
+const logger = winston.createLogger({
+  level: process.env.LOG_LEVEL || 'info',
+  format: winston.format.combine(
+    winston.format.timestamp(),
+    winston.format.json()
+  ),
+  transports: [new winston.transports.Console()]
+});
+
+// ----- Express App Setup -----
 const app = express();
+app.use(helmet());
 app.use(cors());
 app.use(express.json());
+app.use(morgan('combined', {
+  stream: { write: message => logger.info(message.trim()) }
+}));
 
-// Database connection
-const db = mysql.createConnection({
-  host: 'localhost',
-  user: 'root',
-  password: 'Ah128256', // پسورد MySQL
-  database: 'platform'
+// ----- MySQL Connection Pool -----
+const pool = mysql.createPool({
+  host: DB_HOST,
+  user: DB_USER,
+  password: DB_PASS,
+  database: DB_NAME,
+  waitForConnections: true,
+  connectionLimit: 10,
+  queueLimit: 0
 });
 
-db.connect(err => {
-  if (err) {
-    console.error('Error connecting to MySQL:', err);
-    return;
-  }
-  console.log('Connected to MySQL successfully!');
-});
-
-// Nodemailer transporter (Gmail)
+// ----- Nodemailer Transport -----
 const transporter = nodemailer.createTransport({
   service: 'gmail',
   auth: {
-    user: process.env.EMAIL_USER,
-    pass: process.env.EMAIL_PASS
+    user: EMAIL_USER,
+    pass: EMAIL_PASS
   }
 });
 
-// تابع تولید OTP امن (۸ کاراکتری ترکیبی)
-function generateOTP(length = 8) {
-  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
-  let otp = '';
-  for (let i = 0; i < length; i++) {
-    otp += chars.charAt(Math.floor(Math.random() * chars.length));
-  }
-  return otp;
+// ----- Utility Functions -----
+function generateOTP(length = 6) {
+  // Generates a secure random numeric OTP
+  const min = 10 ** (length - 1);
+  const max = 10 ** length - 1;
+  return (Math.floor(Math.random() * (max - min + 1)) + min).toString();
 }
 
-function sendOTP(email, otp) {
+async function sendOTPEmail(email, otp) {
   const mailOptions = {
-    from: process.env.EMAIL_USER,
+    from: `"Social Media App" <${EMAIL_USER}>`,
     to: email,
     subject: 'Your OTP Code',
-    text: `Your verification code is: ${otp}`
+    text: `Your OTP code is ${otp}. It will expire in 10 minutes.`
   };
-  return transporter.sendMail(mailOptions);
+  await transporter.sendMail(mailOptions);
 }
 
-// Register with OTP
-app.post('/adduser', async (req, res) => {
-  const { username, email, password } = req.body;
-
-  // اعتبارسنجی ایمیل و پسورد
-  if (!email.includes('@')) {
-    return res.status(400).json({ message: 'Invalid email format' });
-  }
-  if (!password || password.length < 8) {
-    return res.status(400).json({ message: 'Password must be at least 8 characters long' });
-  }
-
-  const hashedPassword = await bcrypt.hash(password, 10);
-  const otp = generateOTP(8);
-  const hashedOtp = await bcrypt.hash(otp, 10);
-
-  const sql = 'INSERT INTO users (username, email, password, otp, verified) VALUES (?, ?, ?, ?, ?)';
-  db.query(sql, [username, email, hashedPassword, hashedOtp, false], async (err, result) => {
-    if (err) {
-      console.error(err);
-      res.status(500).json({ message: 'Error adding user' });
-      return;
-    }
-
-    await sendOTP(email, otp);
-    res.json({ message: 'User registered. Please verify OTP sent to your email.' });
-  });
+// ----- Rate Limiting -----
+const otpLimiter = rateLimit({
+  windowMs: 10 * 60 * 1000, // 10 minutes
+  max: 5,
+  message: 'Too many OTP requests, please try again later.'
+});
+const verifyLimiter = rateLimit({
+  windowMs: 10 * 60 * 1000,
+  max: 5,
+  message: 'Too many verification attempts, please try again later.'
+});
+const loginLimiter = rateLimit({
+  windowMs: 10 * 60 * 1000,
+  max: 10,
+  message: 'Too many login attempts, please try again later.'
 });
 
-// Verify OTP
-app.post('/verify', (req, res) => {
-  const { email, otp } = req.body;
-  const sql = 'SELECT * FROM users WHERE email = ?';
-  db.query(sql, [email], async (err, results) => {
-    if (err) return res.status(500).send(err);
-    if (results.length > 0) {
-      const user = results[0];
-      const match = await bcrypt.compare(otp, user.otp);
-      if (match) {
-        const updateSql = 'UPDATE users SET verified = true, otp = NULL WHERE email = ?';
-        db.query(updateSql, [email], (err2) => {
-          if (err2) return res.status(500).send(err2);
-          res.json({ message: 'Account verified successfully!' });
-        });
-      } else {
-        res.status(400).json({ message: 'Invalid OTP' });
-      }
-    } else {
-      res.status(400).json({ message: 'User not found' });
-    }
-  });
-});
-
-// Login
-app.post('/login', (req, res) => {
-  const { email, password } = req.body;
-  const sql = 'SELECT * FROM users WHERE email = ? AND verified = true';
-  db.query(sql, [email], async (err, results) => {
-    if (err) {
-      res.status(500).send(err);
-      return;
-    }
-    if (results.length > 0) {
-      const user = results[0];
-      const match = await bcrypt.compare(password, user.password);
-      if (match) {
-        const token = jwt.sign(
-          { id: user.id, email: user.email },
-          process.env.JWT_SECRET,
-          { expiresIn: '1h' }
-        );
-        res.json({ message: 'Login successful!', token });
-      } else {
-        res.status(401).json({ message: 'Invalid credentials' });
-      }
-    } else {
-      res.status(401).json({ message: 'Invalid credentials or account not verified' });
-    }
-  });
-});
-
-// Middleware
+// ----- JWT Authentication Middleware -----
 function authenticateToken(req, res, next) {
   const authHeader = req.headers['authorization'];
   const token = authHeader && authHeader.split(' ')[1];
-  if (!token) return res.status(401).json({ message: 'Token required' });
+  if (!token) return res.status(401).json({ message: 'Token missing' });
 
-  jwt.verify(token, process.env.JWT_SECRET, (err, user) => {
-    if (err) return res.status(403).json({ message: 'Invalid token' });
+  jwt.verify(token, JWT_SECRET, (err, user) => {
+    if (err) return res.status(403).json({ message: 'Invalid or expired token' });
     req.user = user;
     next();
   });
 }
 
-// Protected route
-app.get('/profile', authenticateToken, (req, res) => {
-  res.json({ message: 'Welcome to your profile!', user: req.user });
+// ----- Routes -----
+
+// Root Health Check
+app.get('/', (req, res) => {
+  res.json({ status: 'ok', message: 'Social Media API is running' });
 });
 
-// Start server
-app.listen(3000, () => {
-  console.log('Server running on port 3000');
+// User Registration with OTP
+app.post('/adduser', otpLimiter, [
+  body('email').isEmail().normalizeEmail(),
+  body('password').isLength({ min: 8 })
+], async (req, res) => {
+  try {
+    const errors = validationResult(req);
+    if (!errors.isEmpty())
+      return res.status(400).json({ errors: errors.array() });
+
+    const { email, password } = req.body;
+    const [existing] = await pool.query('SELECT id FROM users WHERE email = ?', [email]);
+    if (existing.length > 0)
+      return res.status(409).json({ message: 'User already exists' });
+
+    const hashedPassword = await bcrypt.hash(password, 10);
+    const otp = generateOTP();
+    const hashedOTP = await bcrypt.hash(otp, 10);
+    const otpExpires = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
+
+    await pool.query(
+      'INSERT INTO users (email, password, otp_hash, otp_expires, is_verified, created_at) VALUES (?, ?, ?, ?, 0, NOW())',
+      [email, hashedPassword, hashedOTP, otpExpires]
+    );
+
+    await sendOTPEmail(email, otp);
+    res.status(201).json({ message: 'Registration successful. Please verify your email using the OTP sent.' });
+  } catch (err) {
+    logger.error('Error in /adduser:', err);
+    res.status(500).json({ message: 'Registration failed.' });
+  }
+});
+
+// OTP Verification
+app.post('/verify', verifyLimiter, [
+  body('email').isEmail().normalizeEmail(),
+  body('otp').isLength({ min: 6, max: 6 })
+], async (req, res) => {
+  try {
+    const errors = validationResult(req);
+    if (!errors.isEmpty())
+      return res.status(400).json({ errors: errors.array() });
+
+    const { email, otp } = req.body;
+    const [users] = await pool.query('SELECT id, otp_hash, otp_expires, is_verified FROM users WHERE email = ?', [email]);
+    if (users.length === 0)
+      return res.status(404).json({ message: 'User not found' });
+
+    const user = users[0];
+    if (user.is_verified)
+      return res.status(400).json({ message: 'User already verified' });
+
+    if (!user.otp_hash || !user.otp_expires)
+      return res.status(400).json({ message: 'No OTP pending verification' });
+
+    if (new Date() > user.otp_expires)
+      return res.status(400).json({ message: 'OTP expired' });
+
+    const match = await bcrypt.compare(otp, user.otp_hash);
+    if (!match)
+      return res.status(400).json({ message: 'Invalid OTP' });
+
+    await pool.query(
+      'UPDATE users SET is_verified = 1, otp_hash = NULL, otp_expires = NULL WHERE id = ?',
+      [user.id]
+    );
+    res.json({ message: 'Email verified successfully' });
+  } catch (err) {
+    logger.error('Error in /verify:', err);
+    res.status(500).json({ message: 'Verification failed.' });
+  }
+});
+
+// Login and JWT Issuance
+app.post('/login', loginLimiter, [
+  body('email').isEmail().normalizeEmail(),
+  body('password').isLength({ min: 8 })
+], async (req, res) => {
+  try {
+    const errors = validationResult(req);
+    if (!errors.isEmpty())
+      return res.status(400).json({ errors: errors.array() });
+
+    const { email, password } = req.body;
+    const [users] = await pool.query('SELECT id, password, is_verified FROM users WHERE email = ?', [email]);
+    if (users.length === 0)
+      return res.status(401).json({ message: 'Invalid credentials' });
+
+    const user = users[0];
+    if (!user.is_verified)
+      return res.status(403).json({ message: 'Email not verified' });
+
+    const match = await bcrypt.compare(password, user.password);
+    if (!match)
+      return res.status(401).json({ message: 'Invalid credentials' });
+
+    const token = jwt.sign(
+      { id: user.id, email },
+      JWT_SECRET,
+      { expiresIn: '1h' }
+    );
+    res.json({ token });
+  } catch (err) {
+    logger.error('Error in /login:', err);
+    res.status(500).json({ message: 'Login failed.' });
+  }
+});
+
+// Protected Profile Route
+app.get('/profile', authenticateToken, async (req, res) => {
+  try {
+    const [users] = await pool.query('SELECT id, email, is_verified, created_at FROM users WHERE id = ?', [req.user.id]);
+    if (users.length === 0)
+      return res.status(404).json({ message: 'User not found' });
+
+    const user = users[0];
+    res.json({
+      id: user.id,
+      email: user.email,
+      is_verified: !!user.is_verified,
+      created_at: user.created_at
+    });
+  } catch (err) {
+    logger.error('Error in /profile:', err);
+    res.status(500).json({ message: 'Failed to fetch profile.' });
+  }
+});
+
+// Optional: List All Users (Testing Only)
+app.get('/users', async (req, res) => {
+  try {
+    const [users] = await pool.query('SELECT id, email, is_verified, created_at FROM users');
+    res.json(users);
+  } catch (err) {
+    logger.error('Error in /users:', err);
+    res.status(500).json({ message: 'Failed to fetch users.' });
+  }
+});
+
+// ----- Centralized Error Handler -----
+app.use((err, req, res, next) => {
+  logger.error('Unhandled error:', err);
+  res.status(500).json({ message: 'Internal server error.' });
+});
+
+// ----- Graceful Shutdown -----
+const server = app.listen(PORT, () => {
+  logger.info(`Server running on port ${PORT} (${NODE_ENV})`);
+});
+
+process.on('SIGTERM', async () => {
+  logger.info('SIGTERM received, shutting down gracefully');
+  server.close(async () => {
+    await pool.end();
+    logger.info('Server and DB connections closed');
+    process.exit(0);
+  });
+});
+
+process.on('SIGINT', async () => {
+  logger.info('SIGINT received, shutting down gracefully');
+  server.close(async () => {
+    await pool.end();
+    logger.info('Server and DB connections closed');
+    process.exit(0);
+  });
 });
